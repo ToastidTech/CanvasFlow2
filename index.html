@@ -372,21 +372,26 @@
 
         // Pure Client-side Service Worker Engine for absolute standalone PWA PWA functionality without remote resources
         function registerServiceWorker() {
-            if ('serviceWorker' in navigator) {
-                const swCode = `
-                    const CACHE_NAME = 'canvasflow-cache-v1';
-                    self.addEventListener('install', (e) => {
-                        e.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(['.'])));
-                    });
-                    self.addEventListener('fetch', (e) => {
-                        e.respondWith(caches.match(e.request).then((res) => res || fetch(e.request)));
-                    });
-                `;
-                const blob = new Blob([swCode], { type: 'application/javascript' });
-                const workerUrl = URL.createObjectURL(blob);
-                navigator.serviceWorker.register(workerUrl).catch(err => console.log('SW registration skipped', err));
-            }
-        }
-    </script>
-</body>
-</html>
+    if ('serviceWorker' in navigator) {
+        const swCode = `
+            const CACHE_NAME = 'canvasflow-pro-cache-v1';
+            self.addEventListener('install', (e) => {
+                e.waitUntil(
+                    caches.open(CACHE_NAME).then((cache) => 
+                        cache.addAll([
+                            './',
+                            'index.html',
+                            '1000022068.png'
+                        ])
+                    )
+                );
+            });
+            self.addEventListener('fetch', (e) => {
+                e.respondWith(caches.match(e.request).then((res) => res || fetch(e.request)));
+            });
+        `;
+        const blob = new Blob([swCode], { type: 'application/javascript' });
+        const workerUrl = URL.createObjectURL(blob);
+        navigator.serviceWorker.register(workerUrl).catch(err => console.log('SW registration skipped', err));
+    }
+}
