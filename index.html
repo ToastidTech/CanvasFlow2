@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CanvasFlow - Graphic Designer PWA</title>
+    
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="logo.png">
+    
+    <link rel="manifest" href='data:application/manifest+json,{"name":"CanvasFlow","short_name":"CanvasFlow","start_url":".","display":"standalone","background_color":"#0f172a","theme_color":"#0f172a","icons":[{"src":"logo.png","sizes":"512x512","type":"image/png"}]}'>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #0f172a; color: #e2e8f0; font-family: system-ui, sans-serif; }
+        canvas { cursor: crosshair; touch-action: none; }
+        .active-tool { background-color: #3b82f6 !important; color: white !important; }
+    </style>
+</head>
+<body class="flex flex-col h-screen select-none">
+
+    <header class="bg-slate-900 border-b border-slate-800 px-4 py-2 flex items-center justify-between z-10">
+        <div class="flex items-center gap-3">
+            <img src="logo.png" alt="CanvasFlow Logo" class="w-8 h-8 rounded-lg object-contain onerror="this.style.display='none'">
+            <h1 class="text-xl font-black tracking-wider bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">CanvasFlow</h1>
+            <span class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full border border-slate-700">PWA v1.0</span>
+        </div>
+        
+        <div class="flex items-center gap-2">
+            <button id="btn-undo" class="p-2 hover:bg-slate-800 rounded text-slate-300 transition" title="Undo"><i data-lucide="undo-2"></i></button>
+            <button id="btn-redo" class="p-2 hover:bg-slate-800 rounded text-slate-300 transition" title="Redo"><i data-lucide="redo-2"></i></button>
+            <div class="h-6 w-[1px] bg-slate-800 mx-2"></div>
+            <button id="btn-clear" class="p-2 hover:bg-red-950/50 hover:text-red-400 rounded text-slate-300 transition" title="Clear Canvas"><i data-lucide="trash-2"></i></button>
+            <button id="btn-export" class="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 px-4 py-1.5 rounded-lg text-sm font-semibold text-white shadow-lg shadow-blue-500/10 transition"><i data-lucide="download" class="w-4 h-4"></i> Export PNG</button>
+        </div>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden relative">
+        
+        <aside class="w-16 bg-slate-900 border-r border-slate-800 flex flex-col items-center py-4 gap-4 z-10 shadow-xl">
+            <button data-tool="brush" class="p-3 rounded-xl bg-slate-800 text-slate-400 hover:text-white transition group tool-btn active-tool" title="Brush Tool"><i data-lucide="brush"></i></button>
+            <button data-tool="line" class="p-3 rounded-xl bg-slate-800 text-slate-400 hover:text-white transition group tool-btn" title="Line Tool"><i data-lucide="minus"></i></button>
+            <button data-tool="rect" class="p-3 rounded-xl bg-slate-800 text-slate-400 hover:text-white transition group tool-btn" title="Rectangle Tool"><i data-lucide="square"></i></button>
+            <button data-tool="circle" class="p-3 rounded-xl bg-slate-800 text-slate-400 hover:text-white transition group tool-btn" title="Circle Tool"><i data-lucide="circle"></i></button>
+            <button data-tool="text" class="p-3 rounded-xl bg-slate-800 text-slate-400 hover:text-white transition group tool-btn" title="Text Tool"><i data-lucide="type"></i></button>
+            
+            <div class="w-8 h-[1px] bg-slate-800 my-2"></div>
+            
+            <label class="p-3 rounded-xl bg-slate-800 text-slate-400 hover:text-white cursor-pointer transition" title="Import Image">
+                <i data-lucide="image-plus"></i>
+                <input type="file" id="image-loader" accept="image/*" class="hidden">
+            </label>
+        </aside>
+
+        <main class="flex-1 bg-slate-950 flex items-center justify-center p-6 overflow-auto">
+            <div class="shadow-2xl border border-slate-800/50 rounded bg-white overflow-hidden relative">
+                <canvas id="canvas" width="800" height="600"></canvas>
+            </div>
+        </main>
+
+        <aside class="w-64 bg-slate-900 border-l border-slate-800 flex flex-col p-4 gap-5 z-10 shadow-xl">
+            <h3 class="text-xs font-bold text-slate-400 tracking-wider uppercase">Properties</h3>
+            
+            <div class="flex flex-col gap-2">
+                <label class="text-sm text-slate-400">Stroke / Fill Color</label>
+                <div class="flex items-center gap-3">
+                    <input type="color" id="color-picker" value="#3b82f6" class="w-10 h-10 bg-transparent border-0 cursor-pointer rounded">
+                    <input type="text" id="color-hex" value="#3b82f6" class="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm text-slate-200 w-full focus:outline-none focus:border-blue-500">
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-2">
+                <div class="flex justify-between text-sm text-slate-400">
+                    <label>Brush Size</label>
+                    <span id="brush-size-val">5px</span>
+                </div>
+                <input type="range" id="brush-size" min="1" max="50" value="5" class="w-full accent-blue-500 bg-slate-800 rounded-lg appearance-none h-2">
+            </div>
+
+            <div id="shape-options" class="flex flex-col gap-3">
+                <label class="flex items-center gap-2 text-sm text-slate-400 cursor-pointer">
+                    <input type="checkbox" id="fill-shape" class="w-4 h-4 rounded accent-blue-500 bg-slate-800 border-slate-700">
+                    <span>Fill Shape</span>
+                </label>
+            </div>
+
+            <div id="text-options" class="hidden flex flex-col gap-3 border-t border-slate-800 pt-4">
+                <label class="text-sm text-slate-400">Text Content</label>
+                <input type="text" id="text-string" value="CanvasFlow" class="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm text-slate-200 focus:outline-none focus:border-blue-500">
+                
+                <label class="text-sm text-slate-400">Font Size</label>
+                <input type="number" id="text-size" value="40" class="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm text-slate-200 focus:outline-none focus:border-blue-500">
+            </div>
+
+            <div class="mt-auto border-t border-slate-800 pt-4">
+                <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 text-xs text-slate-400 space-y-1">
+                    <p class="font-semibold text-slate-300">Quick Tips:</p>
+                    <p>• Click & drag to draw shapes/lines.</p>
+                    <p>• Text updates dynamically on click.</p>
+                    <p>• App works entirely offline.</p>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <script>
+        // App State Management
+        const state = {
+            canvas: null,
+            ctx: null,
+            currentTool: 'brush',
+            isDrawing: false,
+            startX: 0,
+            startY: 0,
+            history: [],
+            historyIndex: -1,
+            color: '#3b82f6',
+            lineWidth: 5,
+            fill: false
+        };
+
+        // Initialize application when DOM is ready
+        document.addEventListener("DOMContentLoaded", () => {
+            initializeCanvas();
+            setupEventListeners();
+            saveHistoryState(); // Initial blank canvas save
+            lucide.createIcons(); // Hydrate UI Vector icons
+            registerServiceWorker(); // Setup offline execution support
+        });
+
+        function initializeCanvas() {
+            state.canvas = document.getElementById('canvas');
+            state.ctx = state.canvas.getContext('2d');
+            
+            // Set canvas defaults for pristine rendering
+            state.ctx.lineCap = 'round';
+            state.ctx.lineJoin = 'round';
+            
+            // Draw initial clean white workspace canvas background 
+            state.ctx.fillStyle = '#ffffff';
+            state.ctx.fillRect(0, 0, state.canvas.width, state.canvas.height);
+        }
+
+        function setupEventListeners() {
+            const canvas = state.canvas;
+
+            // Mouse interactions
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDrawing);
+            canvas.addEventListener('mouseout', stopDrawing);
+
+            // Responsive mobile touch interactions
+            canvas.addEventListener('touchstart', (e) => { const t = e.touches[0]; startDrawing(getTouchPos(canvas, t)); });
+            canvas.addEventListener('touchmove', (e) => { const t = e.touches[0]; draw(getTouchPos(canvas, t)); e.preventDefault(); });
+            canvas.addEventListener('touchend', stopDrawing);
+
+            // Left Toolbar Tool Switcher
+            document.querySelectorAll('.tool-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const target = e.currentTarget;
+                    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active-tool'));
+                    target.classList.add('active-tool');
+                    state.currentTool = target.getAttribute('data-tool');
+                    
+                    // Show text configurations only when contextual text engine active
+                    if(state.currentTool === 'text') {
+                        document.getElementById('text-options').classList.remove('hidden');
+                    } else {
+                        document.getElementById('text-options').classList.add('hidden');
+                    }
+                });
+            });
+
+            // Properties Event Mapping
+            const colorPicker = document.getElementById('color-picker');
+            const colorHex = document.getElementById('color-hex');
+            const brushSize = document.getElementById('brush-size');
+            const brushSizeVal = document.getElementById('brush-size-val');
+            const fillShape = document.getElementById('fill-shape');
+
+            colorPicker.addEventListener('input', (e) => {
+                state.color = e.target.value;
+                colorHex.value = e.target.value;
+            });
+            colorHex.addEventListener('input', (e) => {
+                if(/^#[0-9A-F]{6}$/i.test(e.target.value)) {
+                    state.color = e.target.value;
+                    colorPicker.value = e.target.value;
+                }
+            });
+            brushSize.addEventListener('input', (e) => {
+                state.lineWidth = e.target.value;
+                brushSizeVal.innerText = `${e.target.value}px`;
+            });
+            fillShape.addEventListener('change', (e) => {
+                state.fill = e.target.checked;
+            });
+
+            // Undo / Redo & App Commands Core Event mapping
+            document.getElementById('btn-undo').addEventListener('click', undo);
+            document.getElementById('btn-redo').addEventListener('click', redo);
+            document.getElementById('btn-clear').addEventListener('click', clearCanvas);
+            document.getElementById('btn-export').addEventListener('click', exportCanvasImage);
+            document.getElementById('image-loader').addEventListener('change', importImageLayer);
+        }
+
+        // Helper calculations coordinates handling
+        function getMousePos(e) {
+            const rect = state.canvas.getBoundingClientRect();
+            return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        }
+        function getTouchPos(canvas, touch) {
+            const rect = canvas.getBoundingClientRect();
+            return { clientX: touch.clientX, clientY: touch.clientY };
+        }
+
+        // Production Drawing Engine Core
+        function startDrawing(e) {
+            state.isDrawing = true;
+            const coords = e.clientX !== undefined ? getMousePos(e) : e;
+            state.startX = coords.x;
+            state.startY = coords.y;
+            
+            // Set styles dynamically based on chosen config panel properties
+            state.ctx.strokeStyle = state.color;
+            state.ctx.fillStyle = state.color;
+            state.ctx.lineWidth = state.lineWidth;
+
+            if (state.currentTool === 'brush') {
+                state.ctx.beginPath();
+                state.ctx.moveTo(state.startX, state.startY);
+            } else if (state.currentTool === 'text') {
+                renderTextToCanvas(state.startX, state.startY);
+                stopDrawing();
+            }
+        }
+
+        function draw(e) {
+            if (!state.isDrawing) return;
+            const coords = e.clientX !== undefined ? getMousePos(e) : e;
+            
+            // For live preview shapes (Line, Rect, Circle), restore canvas back before rendering vector stretch bounds
+            if (state.currentTool !== 'brush') {
+                restoreHistoryState(state.historyIndex);
+            }
+
+            state.ctx.strokeStyle = state.color;
+            state.ctx.fillStyle = state.color;
+            state.ctx.lineWidth = state.lineWidth;
+
+            switch(state.currentTool) {
+                case 'brush':
+                    state.ctx.lineTo(coords.x, coords.y);
+                    state.ctx.stroke();
+                    break;
+                case 'line':
+                    state.ctx.beginPath();
+                    state.ctx.moveTo(state.startX, state.startY);
+                    state.ctx.lineTo(coords.x, coords.y);
+                    state.ctx.stroke();
+                    break;
+                case 'rect':
+                    state.ctx.beginPath();
+                    const w = coords.x - state.startX;
+                    const h = coords.y - state.startY;
+                    if(state.fill) {
+                        state.ctx.fillRect(state.startX, state.startY, w, h);
+                    } else {
+                        state.ctx.strokeRect(state.startX, state.startY, w, h);
+                    }
+                    break;
+                case 'circle':
+                    state.ctx.beginPath();
+                    const r = Math.sqrt(Math.pow(coords.x - state.startX, 2) + Math.pow(coords.y - state.startY, 2));
+                    state.ctx.arc(state.startX, state.startY, r, 0, 2 * Math.PI);
+                    if(state.fill) { state.ctx.fill(); } else { state.ctx.stroke(); }
+                    break;
+            }
+        }
+
+        function stopDrawing() {
+            if (state.isDrawing) {
+                state.isDrawing = false;
+                saveHistoryState();
+            }
+        }
+
+        function renderTextToCanvas(x, y) {
+            const txtStr = document.getElementById('text-string').value;
+            const txtSize = document.getElementById('text-size').value;
+            state.ctx.font = `bold ${txtSize}px system-ui, -apple-system, sans-serif`;
+            state.ctx.textBaseline = 'top';
+            state.ctx.fillStyle = state.color;
+            state.ctx.fillText(txtStr, x, y);
+        }
+
+        // Local State Layer Manipulation Core (Undo / Redo Core Architecture)
+        function saveHistoryState() {
+            // Drop alternative timeline histories if drawing a fresh piece mid-undo sequence
+            if(state.historyIndex < state.history.length - 1) {
+                state.history = state.history.slice(0, state.historyIndex + 1);
+            }
+            state.history.push(state.canvas.toDataURL());
+            state.historyIndex++;
+        }
+
+        function restoreHistoryState(index) {
+            if(index >= 0 && index < state.history.length) {
+                const img = new Image();
+                img.src = state.history[index];
+                img.onload = () => {
+                    state.ctx.clearRect(0, 0, state.canvas.width, state.canvas.height);
+                    state.ctx.drawImage(img, 0, 0);
+                };
+            }
+        }
+
+        function undo() {
+            if(state.historyIndex > 0) {
+                state.historyIndex--;
+                restoreHistoryState(state.historyIndex);
+            }
+        }
+
+        function redo() {
+            if(state.historyIndex < state.history.length - 1) {
+                state.historyIndex++;
+                restoreHistoryState(state.historyIndex);
+            }
+        }
+
+        function clearCanvas() {
+            if(confirm("Are you sure you want to completely clear your design canvas art?")) {
+                state.ctx.fillStyle = '#ffffff';
+                state.ctx.fillRect(0, 0, state.canvas.width, state.canvas.height);
+                saveHistoryState();
+            }
+        }
+
+        // Import Local Image Assets
+        function importImageLayer(e) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    // Fit perfectly inside the bounds of workspace canvas center viewport
+                    const scale = Math.min(state.canvas.width / img.width, state.canvas.height / img.height) * 0.8;
+                    const nw = img.width * scale;
+                    const nh = img.height * scale;
+                    const nx = (state.canvas.width - nw) / 2;
+                    const ny = (state.canvas.height - nh) / 2;
+                    state.ctx.drawImage(img, nx, ny, nw, nh);
+                    saveHistoryState();
+                };
+                img.src = event.target.result;
+            };
+            if(e.target.files[0]) reader.readAsDataURL(e.target.files[0]);
+        }
+
+        // Export Render Logic
+        function exportCanvasImage() {
+            const link = document.createElement('a');
+            link.download = `CanvasFlow-${Date.now()}.png`;
+            link.href = state.canvas.toDataURL();
+            link.click();
+        }
+
+        // Pure Client-side Service Worker Engine for absolute standalone PWA PWA functionality without remote resources
+        function registerServiceWorker() {
+            if ('serviceWorker' in navigator) {
+                const swCode = `
+                    const CACHE_NAME = 'canvasflow-cache-v1';
+                    self.addEventListener('install', (e) => {
+                        e.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(['.'])));
+                    });
+                    self.addEventListener('fetch', (e) => {
+                        e.respondWith(caches.match(e.request).then((res) => res || fetch(e.request)));
+                    });
+                `;
+                const blob = new Blob([swCode], { type: 'application/javascript' });
+                const workerUrl = URL.createObjectURL(blob);
+                navigator.serviceWorker.register(workerUrl).catch(err => console.log('SW registration skipped', err));
+            }
+        }
+    </script>
+</body>
+</html>
